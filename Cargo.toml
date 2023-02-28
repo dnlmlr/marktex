@@ -1,0 +1,17 @@
+[package]
+name = "marktex"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+strip = true
+lto = "thin"
+
+[dependencies]
+clap = { version = "4.1.8", features = ["derive"] }
+comrak = "0.16.0"
+genpdf = { git = "https://github.com/dnlmlr/genpdf-rs", ref = "eacfde8", features = [
+    "hyphenation",
+    "images",
+] }
+hyphenation = { version = "0.8.4", features = ["embed_all"] }
