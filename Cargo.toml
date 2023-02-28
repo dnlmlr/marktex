@@ -10,7 +10,7 @@ lto = "thin"
 [dependencies]
 clap = { version = "4.1.8", features = ["derive"] }
 comrak = "0.16.0"
-genpdf = { git = "https://github.com/dnlmlr/genpdf-rs", ref = "eacfde8", features = [
+genpdf = { git = "https://github.com/dnlmlr/genpdf-rs", rev = "eacfde8", features = [
     "hyphenation",
     "images",
 ] }
