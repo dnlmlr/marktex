@@ -1,207 +1,294 @@
-use std::{fs::File, io::BufReader, path::Path, time::Instant};
+mod base_style;
+mod cli_args;
 
+use std::{fs::File, io::BufReader, path::Path};
+
+use clap::Parser;
 use comrak::{arena_tree::NodeEdge, nodes::NodeValue, Arena};
 use genpdf::{
     elements::{Image, PaddedElement, Paragraph, UnorderedList},
     style::{Color, Style},
-    Alignment, Margins, PaperSize, Scale,
+    Alignment, Margins, Scale,
 };
-use hyphenation::Load;
+
+use crate::{base_style::DocumentStyle, cli_args::CliArgs};
 
 struct FormatStack {
-    stack: Vec<Style>,
+    styles: Vec<Style>,
+    paragraphs: Vec<Paragraph>,
+    lists: Vec<UnorderedList>,
+    blockquote_active: bool,
 }
 
 impl FormatStack {
-    pub fn new(default: Style) -> Self {
+    pub fn new(default_style: Style) -> Self {
         Self {
-            stack: vec![default],
+            styles: vec![default_style],
+            paragraphs: Vec::new(),
+            lists: Vec::new(),
+            blockquote_active: false,
         }
     }
 
-    pub fn push_modify(&mut self, m: impl Fn(&mut Style)) {
-        let mut new_style = self.stack.last().unwrap().clone();
+    pub fn push_style(&mut self, m: impl Fn(&mut Style)) {
+        let mut new_style = self.styles.last().unwrap().clone();
         m(&mut new_style);
-        self.stack.push(new_style);
+        self.styles.push(new_style);
     }
 
-    pub fn pop(&mut self) {
-        self.stack.pop();
+    pub fn pop_style(&mut self) {
+        self.styles.pop();
     }
 
-    pub fn get(&self) -> Style {
-        self.stack.last().unwrap().clone()
+    pub fn get_style(&self) -> Style {
+        self.styles.last().unwrap().clone()
     }
-}
 
-#[derive(Debug, Clone)]
-struct DocumentStyle {
-    text_size: u8,
-    h1_size: u8,
-    h2_size: u8,
-    h3_size: u8,
-    h4_size: u8,
-    h5_size: u8,
-    h6_size: u8,
-
-    line_spacing: f64,
-    paragraph_spacing: f64,
-    header_spacing: f64,
-
-    paper_size: PaperSize,
-    page_margins: Margins,
-
-    align_justify: bool,
-    hyphenation: bool,
-}
-
-impl Default for DocumentStyle {
-    fn default() -> Self {
-        let text_size = 10;
-        Self {
-            text_size,
-
-            h1_size: (text_size as f32 * 2.5).round() as u8,
-            h2_size: (text_size as f32 * 2.0).round() as u8,
-            h3_size: (text_size as f32 * 1.5).round() as u8,
-            h4_size: (text_size as f32 * 1.2).round() as u8,
-            h5_size: (text_size as f32 * 1.0).round() as u8,
-            h6_size: (text_size as f32 * 0.8).round() as u8,
-
-            line_spacing: 1.25,
-            paragraph_spacing: 1.5,
-            header_spacing: 2.0,
-
-            paper_size: PaperSize::A4,
-            page_margins: Margins::trbl(30.0, 35.0, 30.0, 40.0),
-
-            align_justify: true,
-            hyphenation: true,
-        }
+    pub fn push_paragraph(&mut self, p: Paragraph) {
+        self.paragraphs.push(p);
     }
-}
 
-impl DocumentStyle {
-    pub fn get_header_size(&self, h: u8) -> u8 {
-        match h {
-            1 => self.h1_size,
-            2 => self.h2_size,
-            3 => self.h3_size,
-            4 => self.h4_size,
-            5 => self.h5_size,
-            6 => self.h6_size,
-            _ => self.text_size,
-        }
+    pub fn pop_paragraph(&mut self) -> Paragraph {
+        self.paragraphs.pop().unwrap()
+    }
+
+    pub fn get_paragraph_mut(&mut self) -> &mut Paragraph {
+        self.paragraphs.last_mut().unwrap()
+    }
+
+    pub fn push_list(&mut self, p: UnorderedList) {
+        self.lists.push(p);
+    }
+
+    pub fn pop_list(&mut self) -> UnorderedList {
+        self.lists.pop().unwrap()
+    }
+
+    pub fn has_list(&self) -> bool {
+        !self.lists.is_empty()
+    }
+
+    pub fn get_list_mut(&mut self) -> &mut UnorderedList {
+        self.lists.last_mut().unwrap()
     }
 }
 
 fn main() {
-    let docstyle = DocumentStyle::default();
+    // Cli Parsing and base style setup
+    let cli_args = CliArgs::parse();
+    let docstyle = DocumentStyle::from(&cli_args);
 
+    // PDF document setup
     let font = genpdf::fonts::from_files("fonts", "DroidSerif", None).unwrap();
-
     let mut doc = genpdf::Document::new(font);
+    docstyle.apply_base_style(&mut doc);
 
-    if docstyle.hyphenation {
-        doc.set_hyphenator(
-            hyphenation::Standard::from_embedded(hyphenation::Language::German1996).unwrap(),
-        );
-    }
-    doc.set_font_size(docstyle.text_size);
-    doc.set_line_spacing(docstyle.line_spacing);
-    doc.set_paper_size(docstyle.paper_size);
-    doc.set_title("My PDF File");
-
-    let mut deco = genpdf::SimplePageDecorator::new();
-    deco.set_margins(docstyle.page_margins);
-    doc.set_page_decorator(deco);
+    // Markdown parsing
+    let arena = Arena::new();
+    let md = std::fs::read_to_string(&cli_args.input).expect("Can't read input file");
+    let opts = comrak::ComrakOptions::default();
+    let md_ast = comrak::parse_document(&arena, &md, &opts);
 
     let mut stylestack = FormatStack::new(Style::default());
-    let mut pstack: Vec<Paragraph> = Vec::new();
-    let mut nested_stack: Vec<UnorderedList> = Vec::new();
-    let mut blockquote = false;
 
-    let arena = Arena::new();
-
-    let md = include_str!("text.md");
-    let opts = comrak::ComrakOptions::default();
-
-    let t1 = Instant::now();
-
-    let md_ast = comrak::parse_document(&arena, md, &opts);
-
+    // Markdown AST traversal to create matching PDF outputs to the markdown elements
     for node_edge in md_ast.traverse() {
-        match node_edge {
-            NodeEdge::Start(it) => match &it.data.borrow().value {
-                NodeValue::Text(t) => println!("<Text({})>", String::from_utf8_lossy(t)),
-                it => println!("<{:?}>", it),
-            },
-            NodeEdge::End(it) => match &it.data.borrow().value {
-                NodeValue::Text(t) => println!("</Text({})>", String::from_utf8_lossy(t)),
-                it => println!("</{:?}>", it),
-            },
+        let (node, start) = match node_edge {
+            NodeEdge::Start(it) => (&it.data, true),
+            NodeEdge::End(it) => (&it.data, false),
+        };
+        let node = &node.borrow().value;
+
+        // Debug prints for the AST Nodes
+        match start {
+            true => print!("START: "),
+            false => print!("END: "),
+        }
+        match &node {
+            NodeValue::Text(t) => println!("Text({})", String::from_utf8_lossy(t)),
+            it => println!("{:?}", it),
         }
 
-        match node_edge {
-            NodeEdge::Start(start) => match &start.data.borrow().value {
-                NodeValue::Paragraph => {
+        match (start, node) {
+                (true, NodeValue::Paragraph) => {
                     let mut p = Paragraph::default();
                     if docstyle.align_justify {
                         p.set_alignment(Alignment::Justified);
                     }
-                    pstack.push(p);
+                    stylestack.push_paragraph(p);
                 }
-                NodeValue::Heading(h) => {
-                    stylestack.push_modify(|s| {
+                (true, NodeValue::Heading(h)) => {
+                    stylestack.push_style(|s| {
                         let font_size = docstyle.get_header_size(h.level);
                         s.set_font_size(font_size);
                         s.set_bold();
                     });
-                    pstack.push(Paragraph::default());
+                    stylestack.push_paragraph(Paragraph::default());
                 }
-                NodeValue::Text(t) => {
+                (true, NodeValue::Text(t)) => {
                     let t = String::from_utf8_lossy(t);
-                    pstack.last_mut().unwrap().push_styled(t, stylestack.get());
+                    let style = stylestack.get_style();
+                    stylestack.get_paragraph_mut().push_styled(t, style);
                 }
-                NodeValue::Emph => {
-                    stylestack.push_modify(|s| {
+                (true, NodeValue::Emph) => {
+                    stylestack.push_style(|s| {
                         s.set_italic();
                     });
                 }
-                NodeValue::Strong => {
-                    stylestack.push_modify(|s| {
+                (true, NodeValue::Strong) => {
+                    stylestack.push_style(|s| {
                         s.set_bold();
                     });
                 }
-                NodeValue::SoftBreak => {
-                    pstack.last_mut().unwrap().push_styled(" ", stylestack.get());
+                (true, NodeValue::List(_lst)) => {
+                    stylestack.push_list(UnorderedList::new());
                 }
-                NodeValue::LineBreak => {}
-                NodeValue::List(_lst) => {
-                    nested_stack.push(UnorderedList::new());
-                }
-                NodeValue::Item(_item) => {
-                    // Items automatically contain a paragraph, so don't do anything here
-                }
-                NodeValue::BlockQuote => {
-                    stylestack.push_modify(|s| {
+                (true, NodeValue::BlockQuote) => {
+                    stylestack.push_style(|s| {
                         s.set_color(Color::Rgb(40, 60, 60));
                         s.set_italic();
                     });
-                    blockquote = true;
+                    stylestack.blockquote_active = true;
                 }
-                NodeValue::Image(img) => {
-                    let path = String::from_utf8_lossy(&img.url);
+                (true, NodeValue::Image(node_img)) => {
+                    let path = String::from_utf8_lossy(&node_img.url);
+
+                    let mut scale_x = 1.0;
+                    let mut scale_y = 1.0;
+                    let mut rotation = 0.0;
+
+                    // Title is abused for metadata
+                    let title = String::from_utf8_lossy(&node_img.title);
+                    let props = title.split(',');
+                    for prop in props {
+                        let mut key_value = prop.split('=');
+                        let key = key_value.next();
+                        let value = key_value.next();
+
+                        match (key, value) {
+                            (Some(key), Some(value)) => {
+                                match key.trim() {
+                                    "scale" => match value.trim().parse() {
+                                        Ok(value) => {
+                                            scale_x = value;
+                                            scale_y = value;
+                                        }
+                                        Err(_) => eprintln!("Failed to parse '{}' as scale value", value),
+                                    }
+                                    "scale-x" => match value.trim().parse() {
+                                        Ok(value) => {
+                                            scale_x = value;
+                                        }
+                                        Err(_) => eprintln!("Failed to parse '{}' as scale value", value),
+                                    }
+                                    "scale-y" => match value.trim().parse() {
+                                        Ok(value) => {
+                                            scale_y = value;
+                                        }
+                                        Err(_) => eprintln!("Failed to parse '{}' as scale value", value),
+                                    }
+                                    "rotate" => match value.trim().parse() {
+                                        Ok(value) => rotation = value,
+                                        Err(_) => eprintln!("Failed to parse '{}' as rotate value", value),
+                                    }
+                                    _ => ()
+                                }
+                            }
+                            _ => {
+                                eprintln!(
+                                    "Failed to parse key value props from image title: '{}'", 
+                                    title
+                                );
+                            }
+                        }
+                    }
+
                     match File::open(Path::new(path.as_ref())).map(|reader| Image::from_reader(BufReader::new(reader))) {
                         Ok(Ok(mut img)) => {
-                            img.set_scale(Scale::new(0.5, 0.5));
+                            img.set_scale(Scale::new(scale_x, scale_y));
+                            img.set_alignment(Alignment::Center);
+                            img.set_clockwise_rotation(rotation);
                             doc.push(img);
                         }
                         _ => {
-                            eprintln!("Error loading image: {}", String::from_utf8_lossy(&img.url));
+                            eprintln!("Error loading image: {}", String::from_utf8_lossy(&node_img.url));
                         }
                     }
                 }
+                (true, NodeValue::LineBreak) => {
+                    doc.push(PaddedElement::new(
+                        stylestack.pop_paragraph(),
+                        Margins::trbl(0, 0, docstyle.paragraph_spacing, 0),
+                    ));
+
+                    let mut p = Paragraph::default();
+                    if docstyle.align_justify {
+                        p.set_alignment(Alignment::Justified);
+                    }
+                    stylestack.push_paragraph(p);
+                }
+                (true, NodeValue::SoftBreak) => {
+                    let style = stylestack.get_style();
+                    stylestack.get_paragraph_mut().push_styled(" ", style);
+                }
+
+                (false, NodeValue::Paragraph) => {
+                    let new_elem = stylestack.pop_paragraph();
+
+                    match stylestack.has_list() {
+                        true => stylestack.get_list_mut().push(new_elem),
+                        false => {
+                            if stylestack.blockquote_active {
+                                // TODO: Do something to better mark block quotes
+                            }
+                            doc.push(PaddedElement::new(
+                                new_elem,
+                                Margins::trbl(0, 0, docstyle.paragraph_spacing, 0),
+                            ));
+                        }
+                    }
+                }
+                (false, NodeValue::Heading(_)) => {
+                    doc.push(PaddedElement::new(
+                        stylestack.pop_paragraph(),
+                        Margins::trbl(0, 0, docstyle.header_spacing, 0),
+                    ));
+                    stylestack.pop_style();
+                }
+                (false, NodeValue::Emph | NodeValue::Strong) => {
+                    stylestack.pop_style();
+                }
+                (false, NodeValue::BlockQuote) => {
+                    stylestack.pop_style();
+                    stylestack.blockquote_active = false;
+                }
+                (false, NodeValue::List(_lst)) => {
+                    let list = stylestack.pop_list();
+
+                    match stylestack.has_list() {
+                        true => {
+                            stylestack.get_list_mut().push_no_bullet(list);
+                        }
+                        false => doc.push(list),
+                    }
+                }
+
+
+
+                (false, NodeValue::SoftBreak) => {
+                    // SoftBreak is applied at Start(SoftBreak), nothing to do here
+                }
+                (false, NodeValue::LineBreak) => {
+                    // LineBreak is applied at Start(LineBreak), nothing to do here
+                }
+                (false, NodeValue::Text(_)) => {
+                    // Text is inserted at Start(Text), and commited when the paragraph ends. So
+                    // Nothing to do here
+                }
+                (_, NodeValue::Item(_item)) => {
+                    // Items automatically contain a paragraph, so don't do anything here
+                }
+
                 _ => ()
                 // NodeValue::Document => todo!(),
                 // NodeValue::FrontMatter(_) => todo!(),
@@ -223,80 +310,8 @@ fn main() {
                 // NodeValue::Superscript => todo!(),
                 // NodeValue::Link(_) => todo!(),
                 // NodeValue::FootnoteReference(_) => todo!(),
-            },
-            NodeEdge::End(end) => match &end.data.borrow().value {
-                NodeValue::Paragraph => {
-                    let active_list = nested_stack.last_mut();
-                    let new_elem = pstack.pop().unwrap();
-
-                    match active_list {
-                        Some(active_list) => active_list.push(new_elem),
-                        None => {
-                            if blockquote {
-                                // TODO: Do something to better mark block quotes
-                            }
-                            doc.push(PaddedElement::new(
-                                new_elem,
-                                Margins::trbl(0, 0, docstyle.paragraph_spacing, 0),
-                            ));
-                        }
-                    }
-                }
-                NodeValue::Heading(_) => {
-                    doc.push(PaddedElement::new(
-                        pstack.pop().unwrap(),
-                        Margins::trbl(0, 0, docstyle.header_spacing, 0),
-                    ));
-                    stylestack.pop();
-                }
-                NodeValue::Text(_) => {}
-                NodeValue::Emph | NodeValue::Strong => {
-                    stylestack.pop();
-                }
-                NodeValue::BlockQuote => {
-                    stylestack.pop();
-                    blockquote = false;
-                }
-                NodeValue::LineBreak => {
-                    doc.push(PaddedElement::new(
-                        pstack.pop().unwrap(),
-                        Margins::trbl(0, 0, docstyle.paragraph_spacing, 0),
-                    ));
-
-                    let mut p = Paragraph::default();
-                    if docstyle.align_justify {
-                        p.set_alignment(Alignment::Justified);
-                    }
-                    pstack.push(p);
-                }
-                NodeValue::List(_lst) => {
-                    let list = nested_stack.pop().unwrap();
-                    let active_list = nested_stack.last_mut();
-
-                    match active_list {
-                        Some(active_list) => {
-                            active_list.push_no_bullet(list);
-                        }
-                        None => doc.push(list),
-                    }
-                }
-                NodeValue::Item(_item) => {
-                    // Items automatically contain a paragraph, so don't do anything here
-                }
-                _ => (),
-            },
         }
     }
 
-    let dt_building = t1.elapsed();
-
-    doc.render_to_file("output.pdf").unwrap();
-
-    let dt_render_to_file = t1.elapsed();
-
-    println!("In memory build took {} sec", dt_building.as_secs_f32());
-    println!(
-        "Render to file took {} sec",
-        (dt_render_to_file - dt_building).as_secs_f32()
-    );
+    doc.render_to_file(&cli_args.output).unwrap();
 }

@@ -507,7 +507,7 @@ dependencies = [
 [[package]]
 name = "genpdf"
 version = "0.2.0"
-source = "git+https://github.com/dnlmlr/genpdf-rs?rev=eacfde8#eacfde82095ab6210ec87eca04a47149109cc0c5"
+source = "git+https://github.com/dnlmlr/genpdf-rs#8dc3281936f97ff3cf720cabc49ae613a8e0716e"
 dependencies = [
  "derive_more",
  "hyphenation",
