@@ -37,6 +37,9 @@ pub struct CliArgs {
     /// Base fontsize for the text
     #[arg(long)]
     pub font_size: Option<u8>,
+
+    #[arg(long)]
+    pub print_ast: bool,
 }
 
 impl From<&CliArgs> for DocumentStyle {

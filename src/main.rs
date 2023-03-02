@@ -6,7 +6,7 @@ use std::{fs::File, io::BufReader, path::Path};
 use clap::Parser;
 use comrak::{arena_tree::NodeEdge, nodes::NodeValue, Arena};
 use genpdf::{
-    elements::{Image, PaddedElement, Paragraph, UnorderedList},
+    elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList},
     style::{Color, Style},
     Alignment, Margins, Scale,
 };
@@ -73,51 +73,64 @@ impl FormatStack {
     }
 }
 
+enum NodeStartEnd {
+    Start,
+    End,
+}
+
 fn main() {
     // Cli Parsing and base style setup
     let cli_args = CliArgs::parse();
     let docstyle = DocumentStyle::from(&cli_args);
 
+    let md = std::fs::read_to_string(&cli_args.input).expect("Can't read input file");
+
     // PDF document setup
     let font = genpdf::fonts::from_files("fonts", "DroidSerif", None).unwrap();
     let mut doc = genpdf::Document::new(font);
+    doc.set_minimal_conformance();
     docstyle.apply_base_style(&mut doc);
 
     // Markdown parsing
     let arena = Arena::new();
-    let md = std::fs::read_to_string(&cli_args.input).expect("Can't read input file");
-    let opts = comrak::ComrakOptions::default();
+    let mut opts = comrak::ComrakOptions::default();
+    // opts.extension.tasklist = true;
+    opts.extension.strikethrough = true;
     let md_ast = comrak::parse_document(&arena, &md, &opts);
 
     let mut stylestack = FormatStack::new(Style::default());
 
     // Markdown AST traversal to create matching PDF outputs to the markdown elements
     for node_edge in md_ast.traverse() {
+        use NodeStartEnd::{End, Start};
+
         let (node, start) = match node_edge {
-            NodeEdge::Start(it) => (&it.data, true),
-            NodeEdge::End(it) => (&it.data, false),
+            NodeEdge::Start(it) => (&it.data, Start),
+            NodeEdge::End(it) => (&it.data, End),
         };
         let node = &node.borrow().value;
 
         // Debug prints for the AST Nodes
-        match start {
-            true => print!("START: "),
-            false => print!("END: "),
-        }
-        match &node {
-            NodeValue::Text(t) => println!("Text({})", String::from_utf8_lossy(t)),
-            it => println!("{:?}", it),
+        if cli_args.print_ast {
+            match start {
+                Start => print!("START: "),
+                End => print!("END: "),
+            }
+            match &node {
+                NodeValue::Text(t) => println!("Text({})", String::from_utf8_lossy(t)),
+                it => println!("{:?}", it),
+            }
         }
 
         match (start, node) {
-                (true, NodeValue::Paragraph) => {
+                (Start, NodeValue::Paragraph) => {
                     let mut p = Paragraph::default();
                     if docstyle.align_justify {
                         p.set_alignment(Alignment::Justified);
                     }
                     stylestack.push_paragraph(p);
                 }
-                (true, NodeValue::Heading(h)) => {
+                (Start, NodeValue::Heading(h)) => {
                     stylestack.push_style(|s| {
                         let font_size = docstyle.get_header_size(h.level);
                         s.set_font_size(font_size);
@@ -125,32 +138,37 @@ fn main() {
                     });
                     stylestack.push_paragraph(Paragraph::default());
                 }
-                (true, NodeValue::Text(t)) => {
+                (Start, NodeValue::Text(t)) => {
                     let t = String::from_utf8_lossy(t);
                     let style = stylestack.get_style();
                     stylestack.get_paragraph_mut().push_styled(t, style);
                 }
-                (true, NodeValue::Emph) => {
+                (Start, NodeValue::Emph) => {
                     stylestack.push_style(|s| {
                         s.set_italic();
                     });
                 }
-                (true, NodeValue::Strong) => {
+                (Start, NodeValue::Strong) => {
                     stylestack.push_style(|s| {
                         s.set_bold();
                     });
                 }
-                (true, NodeValue::List(_lst)) => {
+                (Start, NodeValue::Strikethrough) => {
+                    stylestack.push_style(|s| {
+                        s.set_strikethrough();
+                    });
+                }
+                (Start, NodeValue::List(_lst)) => {
                     stylestack.push_list(UnorderedList::new());
                 }
-                (true, NodeValue::BlockQuote) => {
+                (Start, NodeValue::BlockQuote) => {
                     stylestack.push_style(|s| {
                         s.set_color(Color::Rgb(40, 60, 60));
                         s.set_italic();
                     });
                     stylestack.blockquote_active = true;
                 }
-                (true, NodeValue::Image(node_img)) => {
+                (Start, NodeValue::Image(node_img)) => {
                     let path = String::from_utf8_lossy(&node_img.url);
 
                     let mut scale_x = 1.0;
@@ -215,7 +233,7 @@ fn main() {
                         }
                     }
                 }
-                (true, NodeValue::LineBreak) => {
+                (Start, NodeValue::LineBreak) => {
                     doc.push(PaddedElement::new(
                         stylestack.pop_paragraph(),
                         Margins::trbl(0, 0, docstyle.paragraph_spacing, 0),
@@ -227,12 +245,15 @@ fn main() {
                     }
                     stylestack.push_paragraph(p);
                 }
-                (true, NodeValue::SoftBreak) => {
+                (Start, NodeValue::SoftBreak) => {
                     let style = stylestack.get_style();
                     stylestack.get_paragraph_mut().push_styled(" ", style);
                 }
+                (Start, NodeValue::ThematicBreak) => {
+                    doc.push(PageBreak::new());
+                }
 
-                (false, NodeValue::Paragraph) => {
+                (End, NodeValue::Paragraph) => {
                     let new_elem = stylestack.pop_paragraph();
 
                     match stylestack.has_list() {
@@ -248,21 +269,21 @@ fn main() {
                         }
                     }
                 }
-                (false, NodeValue::Heading(_)) => {
+                (End, NodeValue::Heading(_)) => {
                     doc.push(PaddedElement::new(
                         stylestack.pop_paragraph(),
                         Margins::trbl(0, 0, docstyle.header_spacing, 0),
                     ));
                     stylestack.pop_style();
                 }
-                (false, NodeValue::Emph | NodeValue::Strong) => {
+                (End, NodeValue::Emph | NodeValue::Strong | NodeValue::Strikethrough) => {
                     stylestack.pop_style();
                 }
-                (false, NodeValue::BlockQuote) => {
+                (End, NodeValue::BlockQuote) => {
                     stylestack.pop_style();
                     stylestack.blockquote_active = false;
                 }
-                (false, NodeValue::List(_lst)) => {
+                (End, NodeValue::List(_lst)) => {
                     let list = stylestack.pop_list();
 
                     match stylestack.has_list() {
@@ -275,13 +296,13 @@ fn main() {
 
 
 
-                (false, NodeValue::SoftBreak) => {
+                (End, NodeValue::SoftBreak) => {
                     // SoftBreak is applied at Start(SoftBreak), nothing to do here
                 }
-                (false, NodeValue::LineBreak) => {
+                (End, NodeValue::LineBreak) => {
                     // LineBreak is applied at Start(LineBreak), nothing to do here
                 }
-                (false, NodeValue::Text(_)) => {
+                (End, NodeValue::Text(_)) => {
                     // Text is inserted at Start(Text), and commited when the paragraph ends. So
                     // Nothing to do here
                 }
