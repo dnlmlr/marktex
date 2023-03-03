@@ -1,12 +1,15 @@
 mod base_style;
 mod cli_args;
+mod font_subset;
 
 use std::{fs::File, io::BufReader, path::Path};
 
 use clap::Parser;
 use comrak::{arena_tree::NodeEdge, nodes::NodeValue, Arena};
+use font_subset::font_subset;
 use genpdf::{
     elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList},
+    fonts::FontData,
     style::{Color, Style},
     Alignment, Margins, Scale,
 };
@@ -78,6 +81,13 @@ enum NodeStartEnd {
     End,
 }
 
+const EMBEDDED_DEFAULT_FONT: [&[u8]; 4] = [
+    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-regular.otf"),
+    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-bold.otf"),
+    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-italic.otf"),
+    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-bolditalic.otf"),
+];
+
 fn main() {
     // Cli Parsing and base style setup
     let cli_args = CliArgs::parse();
@@ -86,7 +96,20 @@ fn main() {
     let md = std::fs::read_to_string(&cli_args.input).expect("Can't read input file");
 
     // PDF document setup
-    let font = genpdf::fonts::from_files("fonts", "DroidSerif", None).unwrap();
+    let [regular, bold, italic, bold_italic] = EMBEDDED_DEFAULT_FONT.map(|font_raw| {
+        if cli_args.disable_font_subsetting {
+            font_raw.to_vec()
+        } else {
+            font_subset(font_raw, &md).unwrap()
+        }
+    });
+
+    let font = genpdf::fonts::FontFamily {
+        regular: FontData::new(regular, None).unwrap(),
+        bold: FontData::new(bold, None).unwrap(),
+        italic: FontData::new(italic, None).unwrap(),
+        bold_italic: FontData::new(bold_italic, None).unwrap(),
+    };
     let mut doc = genpdf::Document::new(font);
     doc.set_minimal_conformance();
     docstyle.apply_base_style(&mut doc);
@@ -226,7 +249,10 @@ fn main() {
                             img.set_scale(Scale::new(scale_x, scale_y));
                             img.set_alignment(Alignment::Center);
                             img.set_clockwise_rotation(rotation);
-                            doc.push(img);
+                            doc.push(PaddedElement::new(
+                                img, 
+                                Margins::trbl(0, 0, docstyle.paragraph_spacing, 0)
+                            ));
                         }
                         _ => {
                             eprintln!("Error loading image: {}", String::from_utf8_lossy(&node_img.url));
@@ -272,7 +298,7 @@ fn main() {
                 (End, NodeValue::Heading(_)) => {
                     doc.push(PaddedElement::new(
                         stylestack.pop_paragraph(),
-                        Margins::trbl(0, 0, docstyle.header_spacing, 0),
+                        Margins::trbl(docstyle.header_spacing, 0, docstyle.header_spacing, 0),
                     ));
                     stylestack.pop_style();
                 }
@@ -290,7 +316,10 @@ fn main() {
                         true => {
                             stylestack.get_list_mut().push_no_bullet(list);
                         }
-                        false => doc.push(list),
+                        false => doc.push(PaddedElement::new(
+                            list, 
+                            Margins::trbl(0, 0, docstyle.paragraph_spacing, 0)
+                        )),
                     }
                 }
 

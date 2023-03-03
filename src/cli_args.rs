@@ -1,7 +1,16 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use genpdf::Mm;
+use hyphenation::Load;
 
 use crate::base_style::DocumentStyle;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum ArgHyphenationLang {
+    /// German language hyphenation rules
+    De,
+    /// English (US) language hyphenation rules
+    En,
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -38,8 +47,20 @@ pub struct CliArgs {
     #[arg(long)]
     pub font_size: Option<u8>,
 
+    /// What language to use for hyphenation. Default is no hyphenation
+    #[arg(long, value_enum)]
+    pub hyphenation: Option<ArgHyphenationLang>,
+
+    /// Print the parsed markdown nodes during mapping
     #[arg(long)]
     pub print_ast: bool,
+
+    /// By default font-subsetting is used to remove unused glyphs from the embedded fonts in order
+    /// to reduce the PDF file size. Setting this flag disables the subsetting, increasing the PDF
+    /// file size drastically. Currently this doesn't actually chatch all unused glyphs, so there is
+    /// room to improve.
+    #[arg(long)]
+    pub disable_font_subsetting: bool,
 }
 
 impl From<&CliArgs> for DocumentStyle {
@@ -66,6 +87,12 @@ impl From<&CliArgs> for DocumentStyle {
         if let Some(margin_bottom) = value.margin_bottom {
             style.page_margins.bottom = Mm(margin_bottom);
         }
+
+        use hyphenation::Language::{EnglishUS, German1901};
+        style.hyphenation = value.hyphenation.map(|hyp| match hyp {
+            ArgHyphenationLang::De => hyphenation::Standard::from_embedded(German1901).unwrap(),
+            ArgHyphenationLang::En => hyphenation::Standard::from_embedded(EnglishUS).unwrap(),
+        });
 
         style
     }

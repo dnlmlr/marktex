@@ -87,6 +87,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.69"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "224afbd727c3d6e4b90103ece64b8d1b67fbb1973b1046c2281eed3f3803f800"
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -578,7 +584,7 @@ dependencies = [
 [[package]]
 name = "genpdf"
 version = "0.2.0"
-source = "git+https://github.com/dnlmlr/genpdf-rs#b43ff61be2f7831f6b4d341a1ec2bf458513ecf2"
+source = "git+https://github.com/dnlmlr/genpdf-rs#4d422f7a89a77ff80cf20b8ed7173e5ad56939c1"
 dependencies = [
  "derive_more",
  "hyphenation",
@@ -840,6 +846,7 @@ name = "marktex"
 version = "0.1.0"
 dependencies = [
  "allsorts",
+ "anyhow",
  "clap",
  "comrak",
  "genpdf",
@@ -1066,8 +1073,7 @@ checksum = "07e2192780e9f8e282049ff9bffcaa28171e1cb0844f49ed5374e518ae6024ec"
 [[package]]
 name = "printpdf"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b61f0c6672a5507f0557c50c2263abc54fecc2a4c0ca56499be1396679a686c"
+source = "git+https://github.com/dnlmlr/printpdf#500e6ef540e13aafb159dfa8ff35060b6c4369a6"
 dependencies = [
  "image",
  "js-sys",

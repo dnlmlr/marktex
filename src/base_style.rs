@@ -1,5 +1,4 @@
-use genpdf::{Document, Margins, PaperSize};
-use hyphenation::Load;
+use genpdf::{Document, Margins, PaperSize, SimplePageDecorator};
 
 #[derive(Debug, Clone)]
 pub struct DocumentStyle {
@@ -19,14 +18,14 @@ pub struct DocumentStyle {
     pub page_margins: Margins,
 
     pub align_justify: bool,
-    pub hyphenation: bool,
+    pub hyphenation: Option<hyphenation::Standard>,
 
     pub title: String,
 }
 
 impl Default for DocumentStyle {
     fn default() -> Self {
-        let text_size = 10;
+        let text_size = 11;
         Self {
             text_size,
 
@@ -37,15 +36,15 @@ impl Default for DocumentStyle {
             h5_size: (text_size as f32 * 1.0).round() as u8,
             h6_size: (text_size as f32 * 0.8).round() as u8,
 
-            line_spacing: 1.25,
-            paragraph_spacing: 1.5,
-            header_spacing: 2.0,
+            line_spacing: 0.95,
+            paragraph_spacing: 1.8,
+            header_spacing: 2.3,
 
             paper_size: PaperSize::A4,
-            page_margins: Margins::trbl(30.0, 35.0, 30.0, 40.0),
+            page_margins: Margins::trbl(20.0, 35.5, 30.0, 42.5),
 
             align_justify: true,
-            hyphenation: true,
+            hyphenation: None,
 
             title: String::new(),
         }
@@ -66,17 +65,15 @@ impl DocumentStyle {
     }
 
     pub fn apply_base_style(&self, doc: &mut Document) {
-        if self.hyphenation {
-            doc.set_hyphenator(
-                hyphenation::Standard::from_embedded(hyphenation::Language::German1996).unwrap(),
-            );
+        if let Some(hyp) = &self.hyphenation {
+            doc.set_hyphenator(hyp.clone());
         }
         doc.set_font_size(self.text_size);
         doc.set_line_spacing(self.line_spacing);
         doc.set_paper_size(self.paper_size);
         doc.set_title(&self.title);
 
-        let mut deco = genpdf::SimplePageDecorator::new();
+        let mut deco = SimplePageDecorator::new();
         deco.set_margins(self.page_margins);
         doc.set_page_decorator(deco);
     }

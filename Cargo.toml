@@ -12,8 +12,9 @@ description = "A lightweight (but much less powerful) single executable alternat
 strip = true
 lto = "thin"
 
-#[patch.crates-io]
-#printpdf = { path = "./printpdf" }
+[patch.crates-io]
+printpdf = { git = "https://github.com/dnlmlr/printpdf" }
+# printpdf = { path = "./printpdf" }
 
 [dependencies]
 clap = { version = "4.1.8", features = ["derive"] }
@@ -27,4 +28,7 @@ genpdf = { git = "https://github.com/dnlmlr/genpdf-rs", features = [
 #     "images",
 # ] }
 hyphenation = { version = "0.8.4", features = ["embed_all"] }
-allsorts = { version = "0.14.0", features = ["flate2_rust"], default-features = false }
+allsorts = { version = "0.14.0", features = [
+    "flate2_rust",
+], default-features = false }
+anyhow = "1.0.69"
