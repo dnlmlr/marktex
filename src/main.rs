@@ -217,7 +217,7 @@ fn main() {
                     // Title is abused for metadata
                     let title = String::from_utf8_lossy(&node_img.title);
                     let props = title.split(',');
-                    for prop in props {
+                    for prop in props.filter(|it| !it.trim().is_empty()) {
                         let mut key_value = prop.split('=');
                         let key = key_value.next();
                         let value = key_value.next();
@@ -227,6 +227,7 @@ fn main() {
                                 match key.trim() {
                                     "scale" => match value.trim().parse() {
                                         Ok(value) => {
+                                            println!("Scale value {}", value);
                                             scale_x = value;
                                             scale_y = value;
                                         }
@@ -265,6 +266,7 @@ fn main() {
                             img.set_scale(Scale::new(scale_x, scale_y));
                             img.set_alignment(Alignment::Center);
                             img.set_clockwise_rotation(rotation);
+                            img.set_fit_width(true);
                             doc.push(PaddedElement::new(
                                 img, 
                                 Margins::trbl(0, 0, docstyle.paragraph_spacing, 0)

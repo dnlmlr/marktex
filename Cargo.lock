@@ -636,7 +636,7 @@ dependencies = [
 [[package]]
 name = "genpdf"
 version = "0.2.0"
-source = "git+https://github.com/dnlmlr/genpdf-rs#0bfe720853efcc34f2e9fe818dd27a07e8e71069"
+source = "git+https://github.com/dnlmlr/genpdf-rs#f408e0e5b11d09fa722c1e0d8c73220b62a79bf0"
 dependencies = [
  "derive_more",
  "font",
@@ -1599,9 +1599,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.93"
+version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cad406b69c91885b5107daf2c29572f6c8cdb3c66826821e286c533490c0bc76"
+checksum = "1c533a59c9d8a93a09c6ab31f0fd5e5f4dd1b8fc9434804029839884765d04ea"
 dependencies = [
  "itoa 1.0.6",
  "ryu",
