@@ -10,7 +10,7 @@ use font_subset::font_subset;
 use genpdf::{
     elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList},
     fonts::FontData,
-    style::{Color, Style},
+    style::{Color, Style, StyledString},
     Alignment, Margins, Scale,
 };
 
@@ -149,7 +149,7 @@ fn main() {
                 (Start, NodeValue::Paragraph) => {
                     let mut p = Paragraph::default();
                     if docstyle.align_justify {
-                        p.set_alignment(Alignment::Justified);
+                        p.set_alignment(Alignment::Justified(true));
                     }
                     stylestack.push_paragraph(p);
                 }
@@ -267,13 +267,18 @@ fn main() {
 
                     let mut p = Paragraph::default();
                     if docstyle.align_justify {
-                        p.set_alignment(Alignment::Justified);
+                        p.set_alignment(Alignment::Justified(true));
                     }
                     stylestack.push_paragraph(p);
                 }
                 (Start, NodeValue::SoftBreak) => {
                     let style = stylestack.get_style();
-                    stylestack.get_paragraph_mut().push_styled(" ", style);
+                    stylestack.get_paragraph_mut().push_if_text(
+                        StyledString::new(' ', style), 
+                        |text| {
+                            text.last().map(|w| !w.s.ends_with(' ')).unwrap_or(true)
+                        }
+                    );
                 }
                 (Start, NodeValue::ThematicBreak) => {
                     doc.push(PageBreak::new());
