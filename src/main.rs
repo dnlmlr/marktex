@@ -8,7 +8,7 @@ use clap::Parser;
 use comrak::{arena_tree::NodeEdge, nodes::NodeValue, Arena};
 use font_subset::font_subset;
 use genpdf::{
-    elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList},
+    elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList, Math},
     fonts::FontData,
     style::{Color, Style, StyledString},
     Alignment, Margins, Scale,
@@ -88,6 +88,16 @@ const EMBEDDED_DEFAULT_FONT: [&[u8]; 4] = [
     include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-bolditalic.otf"),
 ];
 
+fn make_font_family(data: &[u8]) -> genpdf::fonts::FontFamily<FontData> {
+    let font = genpdf::fonts::FontData::new(data.to_vec(), None).unwrap();
+    genpdf::fonts::FontFamily {
+        regular: font.clone(),
+        bold: font.clone(),
+        italic: font.clone(),
+        bold_italic: font,
+    }
+}
+
 fn main() {
     // Cli Parsing and base style setup
     let cli_args = CliArgs::parse();
@@ -110,8 +120,14 @@ fn main() {
         italic: FontData::new(italic, None).unwrap(),
         bold_italic: FontData::new(bold_italic, None).unwrap(),
     };
+
+    let font_raw = include_bytes!("../fonts/rex-xits.ttf");
+    let math_font_family = make_font_family(font_raw);
+
     let mut doc = genpdf::Document::new(font);
     doc.set_minimal_conformance();
+    let math_font_family = doc.add_font_family(math_font_family);
+    doc.enable_math(font_raw, math_font_family);
     docstyle.apply_base_style(&mut doc);
 
     // Markdown parsing
@@ -283,6 +299,37 @@ fn main() {
                 (Start, NodeValue::ThematicBreak) => {
                     doc.push(PageBreak::new());
                 }
+                (Start, NodeValue::CodeBlock(cb)) => {
+                    if cb.info == b"math" {
+                        let math_str = String::from_utf8_lossy(&cb.literal);
+                        let lines = math_str.lines();
+                        let mut math_lines: Vec<String> = Vec::new();
+
+                        // Lines separated by a fully empty line will be rendered vertically stacked
+                        let mut append_to_prev = false;
+                        for line in lines {
+                            if line.trim().is_empty() {
+                                append_to_prev = false;
+                            } else {
+                                if append_to_prev {
+                                    math_lines.last_mut().unwrap().push_str(line);
+                                } else {
+                                    math_lines.push(line.to_string());
+                                }
+                                append_to_prev = true;
+                            }
+                        }
+
+                        for math in math_lines {
+                            let math_block = Math::new(&math).aligned(Alignment::Center);
+                            doc.push(PaddedElement::new(
+                                math_block, 
+                                Margins::trbl(0, 0, docstyle.paragraph_spacing, 0)
+                            ));
+                        }
+                    }
+                }
+
 
                 (End, NodeValue::Paragraph) => {
                     let new_elem = stylestack.pop_paragraph();
