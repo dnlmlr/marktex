@@ -143,11 +143,11 @@ fn main() {
     for node_edge in md_ast.traverse() {
         use NodeStartEnd::{End, Start};
 
-        let (node, start) = match node_edge {
+        let (ast_node, start) = match node_edge {
             NodeEdge::Start(it) => (&it.data, Start),
             NodeEdge::End(it) => (&it.data, End),
         };
-        let node = &node.borrow().value;
+        let node = &ast_node.borrow().value;
 
         // Debug prints for the AST Nodes
         if cli_args.print_ast {
@@ -323,7 +323,20 @@ fn main() {
                         }
 
                         for math in math_lines {
-                            let math_block = Math::new(&math).aligned(Alignment::Center);
+                            let mut math_block = match Math::new(&math) {
+                                Ok(it) => it,
+                                Err(e) => {
+                                    eprintln!(
+                                        "Error while parsing math block in line ({}): {}", 
+                                        ast_node.borrow().start_line,
+                                        e
+                                    );
+                                    eprintln!("    occured in '{}'", math);
+                                    continue;
+                                }
+                            };
+                            math_block.set_alignment(Alignment::Center);
+
                             doc.push(PaddedElement::new(
                                 math_block, 
                                 Margins::trbl(0, 0, docstyle.paragraph_spacing, 0)
