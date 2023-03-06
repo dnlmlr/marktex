@@ -36,9 +36,10 @@ impl Default for DocumentStyle {
             h5_size: (text_size as f32 * 1.0).round() as u8,
             h6_size: (text_size as f32 * 0.8).round() as u8,
 
-            line_spacing: 0.95,
-            paragraph_spacing: 1.8,
-            header_spacing: 2.3,
+            // This is absolutely stupid but lines perfectly with the latex reference document
+            line_spacing: 1.281,
+            paragraph_spacing: 2.5,
+            header_spacing: 3.0,
 
             paper_size: PaperSize::A4,
             page_margins: Margins::trbl(20.0, 35.5, 30.0, 42.5),

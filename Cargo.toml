@@ -22,7 +22,7 @@ comrak = "0.16.0"
 genpdf = { git = "https://github.com/dnlmlr/genpdf-rs", features = [
     "hyphenation",
     "images",
-    "math"
+    "math",
 ] }
 # genpdf = { path="./genpdf-rs", features = [
 #     "hyphenation",
