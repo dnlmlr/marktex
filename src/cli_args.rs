@@ -1,8 +1,8 @@
 use clap::{Parser, ValueEnum};
 use genpdf::Mm;
-use hyphenation::Load;
+use hyphenation::{Load, Standard};
 
-use crate::base_style::DocumentStyle;
+use crate::{base_style::DocumentStyle, resources};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum ArgHyphenationLang {
@@ -88,10 +88,17 @@ impl From<&CliArgs> for DocumentStyle {
             style.page_margins.bottom = Mm(margin_bottom);
         }
 
-        use hyphenation::Language::{EnglishUS, German1901};
+        let dict_de = resources::get_decompress(resources::HYP_DE1996);
+        let dict_en = resources::get_decompress(resources::HYP_EN_US);
+
+        use hyphenation::Language::{EnglishUS, German1996};
         style.hyphenation = value.hyphenation.map(|hyp| match hyp {
-            ArgHyphenationLang::De => hyphenation::Standard::from_embedded(German1901).unwrap(),
-            ArgHyphenationLang::En => hyphenation::Standard::from_embedded(EnglishUS).unwrap(),
+            ArgHyphenationLang::De => {
+                Standard::from_reader(German1996, &mut dict_de.as_slice()).unwrap()
+            }
+            ArgHyphenationLang::En => {
+                Standard::from_reader(EnglishUS, &mut dict_en.as_slice()).unwrap()
+            }
         });
 
         style

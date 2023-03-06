@@ -1,6 +1,7 @@
 mod base_style;
 mod cli_args;
 mod font_subset;
+mod resources;
 
 use std::{fs::File, io::BufReader, path::Path};
 
@@ -81,11 +82,11 @@ enum NodeStartEnd {
     End,
 }
 
-const EMBEDDED_DEFAULT_FONT: [&[u8]; 4] = [
-    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-regular.otf")),
-    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-bold.otf")),
-    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-italic.otf")),
-    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-bolditalic.otf")),
+const EMBEDDED_DEFAULT_FONT: [&str; 4] = [
+    resources::FONT_REGULAR,
+    resources::FONT_BOLD,
+    resources::FONT_ITALIC,
+    resources::FONT_BOLDITALIC,
 ];
 
 fn make_font_family(data: &[u8]) -> genpdf::fonts::FontFamily<FontData> {
@@ -106,8 +107,8 @@ fn main() {
     let md = std::fs::read_to_string(&cli_args.input).expect("Can't read input file");
 
     // PDF document setup
-    let [regular, bold, italic, bold_italic] = EMBEDDED_DEFAULT_FONT.map(|font_raw| {
-        let font_raw = zstd::decode_all(font_raw).unwrap();
+    let [regular, bold, italic, bold_italic] = EMBEDDED_DEFAULT_FONT.map(|font| {
+        let font_raw = resources::get_decompress(font);
         if cli_args.disable_font_subsetting {
             font_raw.to_vec()
         } else {
@@ -122,8 +123,7 @@ fn main() {
         bold_italic: FontData::new(bold_italic, None).unwrap(),
     };
 
-    let font_raw: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-math.otf"));
-    let font_raw = zstd::decode_all(font_raw).unwrap();
+    let font_raw = resources::get_decompress(resources::FONT_MATH);
     let math_font_family = make_font_family(&font_raw);
 
     let mut doc = genpdf::Document::new(font);
