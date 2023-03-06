@@ -13,6 +13,51 @@ This project aims to create decently looking (similar to the *professional / sci
 
 While adding features the focus will be kept on the user experience and especially on the lightweight single-executable. 
 
+## Current state
+
+This is a non-exhaustive list of features that would be nice to have at some point and their current state:
+
+- ✔️ Normal plain text
+- ✔️ Justified text
+- ❌ Anything other than justified text
+- ✔️ Hyphenation (curretly supposted: en, de)
+- ✔️ Headings (h1 - h6): Not looking great due to the default styling, but supported
+- ✔️ Paragraphs (clear separation between paragraphs)
+- ✔️ **Bold / Strong** text 
+- ✔️ *Italic / Emphasis* text
+- 🛠️ ~~Strikethrough~~ text: Unoptimized and still buggy
+- ✔️ Math formulas using latex syntax (codeblock with `math` as info)
+  - ✔️ Block
+  - ❌ Inline
+- ✔️ Images (simply using the normal markdown image syntax)
+  - ✔️ Scale images relative to page width (abusing the title field `![](./myimage.png "scale = 0.5")`)
+  - ❌ Smart compression (I'm not yet sure how the PDF stack deals with the images, but the PDF files seem too big. Maybe the images can be compressed more, or be prescaled to match the PPI or smth.)
+  - ❌ Deduplicate images if the exact same image is used multiple times
+- ✔️ Unordered lists
+- ❌ Ordered (enumerated) lists
+- ❌ Task lists
+- ❌ Code blocks
+  - ❌ Simple monospace rendering
+  - ❌ Syntax highlighted rendering
+- ❌ Tables
+- 🛠️ Block quotes: Currently just makes the text italic and slightly more gray
+- ✔️ Page breaks (start a new page using `---`)
+- ❌ Automatic table of content
+- ❌ Bibliography
+- ❌ Citation
+- ❌ Footnotes
+- ❌ Links
+  - ❌ Hyperlinks
+  - ❌ References to chapters / headings
+  - ❌ References to images / tables / listings / ...
+- ❌ Including other files
+- ✔️ Automatically included default fonts
+- 🛠️ Font subsetting to reduce the output PDF size
+  - ✔️ Remove fully unused fonts
+  - ✔️ Subset the main text fonts according to glyphs occuring in the unparsed Markdown input
+  - ❌ Subset the math font
+  - ❌ Correctly subset all actually used glyphs (Currently there still are more glphys included in the PDF than needed) 
+
 ## Trying it out
 
 This project is in a *very* early prototyping stage, but the current version can be tested out by installing it via: 
