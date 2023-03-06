@@ -5,6 +5,8 @@ use std::{
 };
 
 fn main() {
+    println!("cargo:rustc-link-lib=zstd");
+
     let compression_level = 3;
 
     let resources = [

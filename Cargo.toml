@@ -7,18 +7,23 @@ authors = ["Daniel M"]
 license = "MIT"
 repository = "https://github.com/dnlmlr/marktex"
 description = "A lightweight (but much less powerful) single executable alternative to LaTeX, based on Markdown syntax that just works™"
+keywords = ["pdf", "text", "markdown"]
+categories = ["text-processing"]
 
 [profile.release]
 strip = true
 lto = "thin"
 
 [patch.crates-io]
-printpdf = { git = "https://github.com/dnlmlr/printpdf" }
+# The forked version includes support for automatically omitting unused fonts. This patch will be 
+# removed if that feature gets merged or otherwise implemented in the official version
+printpdf = { git = "https://github.com/dnlmlr/printpdf", rev = "500e6ef540e13aafb159dfa8ff35060b6c4369a6" }
 # printpdf = { path = "./printpdf" }
 
 [dependencies]
 clap = { version = "4.1.8", features = ["derive"] }
 comrak = "0.16.0"
+# This is a fork of the original genpdf-rs with additional features
 genpdf = { git = "https://github.com/dnlmlr/genpdf-rs", features = [
     "hyphenation",
     "images",
@@ -37,4 +42,4 @@ anyhow = "1.0.69"
 zstd = { version = "0.12.3", features = ["thin-lto"] }
 
 [build-dependencies]
-zstd = { version = "0.12.3", features = ["thin-lto"] }
+zstd = { version = "0.12.3" }
