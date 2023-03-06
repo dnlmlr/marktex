@@ -82,10 +82,10 @@ enum NodeStartEnd {
 }
 
 const EMBEDDED_DEFAULT_FONT: [&[u8]; 4] = [
-    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-regular.otf"),
-    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-bold.otf"),
-    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-italic.otf"),
-    include_bytes!("../fonts/TeX-Gyre-Pagella/texgyrepagella-bolditalic.otf"),
+    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-regular.otf")),
+    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-bold.otf")),
+    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-italic.otf")),
+    include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-bolditalic.otf")),
 ];
 
 fn make_font_family(data: &[u8]) -> genpdf::fonts::FontFamily<FontData> {
@@ -107,10 +107,11 @@ fn main() {
 
     // PDF document setup
     let [regular, bold, italic, bold_italic] = EMBEDDED_DEFAULT_FONT.map(|font_raw| {
+        let font_raw = zstd::decode_all(font_raw).unwrap();
         if cli_args.disable_font_subsetting {
             font_raw.to_vec()
         } else {
-            font_subset(font_raw, &md).unwrap()
+            font_subset(&font_raw, &md).unwrap()
         }
     });
 
@@ -121,13 +122,14 @@ fn main() {
         bold_italic: FontData::new(bold_italic, None).unwrap(),
     };
 
-    let font_raw = include_bytes!("../fonts/rex-xits.ttf");
-    let math_font_family = make_font_family(font_raw);
+    let font_raw: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fonts/TeX-Gyre-Pagella/texgyrepagella-math.otf"));
+    let font_raw = zstd::decode_all(font_raw).unwrap();
+    let math_font_family = make_font_family(&font_raw);
 
     let mut doc = genpdf::Document::new(font);
     doc.set_minimal_conformance();
     let math_font_family = doc.add_font_family(math_font_family);
-    doc.enable_math(font_raw, math_font_family);
+    doc.enable_math(&font_raw, math_font_family);
     docstyle.apply_base_style(&mut doc);
 
     // Markdown parsing
