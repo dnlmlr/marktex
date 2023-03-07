@@ -31,7 +31,7 @@ This is a non-exhaustive list of features that would be nice to have at some poi
   - ❌ Inline
 - ✔️ Images (simply using the normal markdown image syntax)
   - ✔️ Scale images relative to page width (abusing the title field `![](./myimage.png "scale = 0.5")`)
-  - ❌ Smart compression (I'm not yet sure how the PDF stack deals with the images, but the PDF files seem too big. Maybe the images can be compressed more, or be prescaled to match the PPI or smth.)
+  - ❌ Smart compression (I'm not yet sure how the PDF stack deals with the images, but `ps2pdf` can make it smaller. Maybe the images can be compressed more, or be prescaled to match the PPI or smth.)
   - ❌ Deduplicate images if the exact same image is used multiple times
 - ✔️ Unordered lists
 - ❌ Ordered (enumerated) lists
@@ -43,6 +43,7 @@ This is a non-exhaustive list of features that would be nice to have at some poi
 - 🛠️ Block quotes: Currently just makes the text italic and slightly more gray
 - ✔️ Page breaks (start a new page using `---`)
 - ❌ Automatic table of content
+- ❌ PDF table of content (not an actual rendered page, but the PDF embedded info)
 - ❌ Bibliography
 - ❌ Citation
 - ❌ Footnotes
@@ -55,8 +56,9 @@ This is a non-exhaustive list of features that would be nice to have at some poi
 - 🛠️ Font subsetting to reduce the output PDF size
   - ✔️ Remove fully unused fonts
   - ✔️ Subset the main text fonts according to glyphs occuring in the unparsed Markdown input
-  - ❌ Subset the math font
-  - ❌ Correctly subset all actually used glyphs (Currently there still are more glphys included in the PDF than needed) 
+  - ✔️ Subset the math font
+  - ✔️ Correctly subset all actually used glyphs (this is done using the subsetting implementation of the forked printpdf and genpdf crates)
+- ❌ Configuration (style) via yaml frontmatter
 
 ## Trying it out
 
