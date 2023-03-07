@@ -639,7 +639,7 @@ dependencies = [
 [[package]]
 name = "genpdf"
 version = "0.2.0"
-source = "git+https://github.com/dnlmlr/genpdf-rs#d80ff872cda7fc887b4c7f778ee30a14223f43b0"
+source = "git+https://github.com/dnlmlr/genpdf-rs#26cb776b9ea2822d93a8994df3728ee5183989c2"
 dependencies = [
  "derive_more",
  "font",
@@ -1302,7 +1302,7 @@ checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 [[package]]
 name = "printpdf"
 version = "0.5.3"
-source = "git+https://github.com/dnlmlr/printpdf?rev=72c00957902dbc27bc71dcc743d9d1377e526685#72c00957902dbc27bc71dcc743d9d1377e526685"
+source = "git+https://github.com/dnlmlr/printpdf?rev=ddf56f2a71e1321d14626f38c5bbc79b8a2985d8#ddf56f2a71e1321d14626f38c5bbc79b8a2985d8"
 dependencies = [
  "allsorts",
  "image 0.24.5",
