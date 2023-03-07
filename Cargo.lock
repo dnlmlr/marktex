@@ -639,7 +639,7 @@ dependencies = [
 [[package]]
 name = "genpdf"
 version = "0.2.0"
-source = "git+https://github.com/dnlmlr/genpdf-rs#df8fcc7d99f77ad160b24d46ee318ecb4490e41e"
+source = "git+https://github.com/dnlmlr/genpdf-rs#d80ff872cda7fc887b4c7f778ee30a14223f43b0"
 dependencies = [
  "derive_more",
  "font",
@@ -959,7 +959,6 @@ dependencies = [
 name = "marktex"
 version = "0.1.0"
 dependencies = [
- "allsorts",
  "anyhow",
  "clap",
  "comrak",
@@ -1303,8 +1302,9 @@ checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 [[package]]
 name = "printpdf"
 version = "0.5.3"
-source = "git+https://github.com/dnlmlr/printpdf?rev=500e6ef540e13aafb159dfa8ff35060b6c4369a6#500e6ef540e13aafb159dfa8ff35060b6c4369a6"
+source = "git+https://github.com/dnlmlr/printpdf?rev=72c00957902dbc27bc71dcc743d9d1377e526685#72c00957902dbc27bc71dcc743d9d1377e526685"
 dependencies = [
+ "allsorts",
  "image 0.24.5",
  "js-sys",
  "lopdf",

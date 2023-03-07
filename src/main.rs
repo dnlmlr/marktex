@@ -1,13 +1,11 @@
 mod base_style;
 mod cli_args;
-mod font_subset;
 mod resources;
 
 use std::{fs::File, io::BufReader, path::Path};
 
 use clap::Parser;
 use comrak::{arena_tree::NodeEdge, nodes::NodeValue, Arena};
-use font_subset::font_subset;
 use genpdf::{
     elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList, Math},
     fonts::FontData,
@@ -90,7 +88,7 @@ const EMBEDDED_DEFAULT_FONT: [&str; 4] = [
 ];
 
 fn make_font_family(data: &[u8]) -> genpdf::fonts::FontFamily<FontData> {
-    let font = genpdf::fonts::FontData::new(data.to_vec(), None).unwrap();
+    let font = genpdf::fonts::FontData::new(data.to_vec(), None).unwrap().with_subsetting(true);
     genpdf::fonts::FontFamily {
         regular: font.clone(),
         bold: font.clone(),
@@ -106,14 +104,11 @@ fn main() {
 
     let md = std::fs::read_to_string(&cli_args.input).expect("Can't read input file");
 
+    let allow_subsetting = !cli_args.disable_font_subsetting;
+
     // PDF document setup
     let [regular, bold, italic, bold_italic] = EMBEDDED_DEFAULT_FONT.map(|font| {
-        let font_raw = resources::get_decompress(font);
-        if cli_args.disable_font_subsetting {
-            font_raw.to_vec()
-        } else {
-            font_subset(&font_raw, &md).unwrap()
-        }
+        resources::get_decompress(font)
     });
 
     let font = genpdf::fonts::FontFamily {
@@ -121,10 +116,10 @@ fn main() {
         bold: FontData::new(bold, None).unwrap(),
         italic: FontData::new(italic, None).unwrap(),
         bold_italic: FontData::new(bold_italic, None).unwrap(),
-    };
+    }.with_subsetting(allow_subsetting);
 
     let font_raw = resources::get_decompress(resources::FONT_MATH);
-    let math_font_family = make_font_family(&font_raw);
+    let math_font_family = make_font_family(&font_raw).with_subsetting(allow_subsetting);
 
     let mut doc = genpdf::Document::new(font);
     doc.set_minimal_conformance();
