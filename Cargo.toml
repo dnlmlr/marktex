@@ -22,11 +22,13 @@ genpdf = { git = "https://github.com/dnlmlr/genpdf-rs", features = [
     "hyphenation",
     "images",
     "math",
+    "code-syntax-highlighting",
 ] }
 # genpdf = { path="./genpdf-rs", features = [
 #     "hyphenation",
 #     "images",
 #     "math",
+#     "code-syntax-highlighting",
 # ] }
 hyphenation = { version = "0.8.4", default-features = false }
 anyhow = "1.0.69"

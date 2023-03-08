@@ -7,10 +7,10 @@ use std::{fs::File, io::BufReader, path::Path};
 use clap::Parser;
 use comrak::{arena_tree::NodeEdge, nodes::NodeValue, Arena};
 use genpdf::{
-    elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList, Math},
+    elements::{Image, PaddedElement, PageBreak, Paragraph, UnorderedList, Math, CodeBlock},
     fonts::FontData,
-    style::{Color, Style, StyledString},
-    Alignment, Margins, Scale,
+    style::{Color, Style, StyledString, LineStyle},
+    Alignment, Margins, Scale, syntax_highlighting::SyntaxHighlighter, Element,
 };
 
 use crate::{base_style::DocumentStyle, cli_args::CliArgs};
@@ -118,13 +118,19 @@ fn main() {
         bold_italic: FontData::new(bold_italic, None).unwrap(),
     }.with_subsetting(allow_subsetting);
 
+    let mut monospace_font = make_font_family(&resources::get_decompress(resources::FONT_MONOSPACE))
+        .with_subsetting(allow_subsetting);
+    monospace_font.bold = FontData::new(resources::get_decompress(resources::FONT_MONOSPACE_BOLD), None).unwrap();
+
     let font_raw = resources::get_decompress(resources::FONT_MATH);
     let math_font_family = make_font_family(&font_raw).with_subsetting(allow_subsetting);
 
     let mut doc = genpdf::Document::new(font);
     doc.set_minimal_conformance();
+    let monospace_font = doc.add_font_family(monospace_font);
     let math_font_family = doc.add_font_family(math_font_family);
     doc.enable_math(&font_raw, math_font_family);
+    doc.enable_syntax_highlighting(SyntaxHighlighter::load_defaults());
     docstyle.apply_base_style(&mut doc);
 
     // Markdown parsing
@@ -299,44 +305,68 @@ fn main() {
                     doc.push(PageBreak::new());
                 }
                 (Start, NodeValue::CodeBlock(cb)) => {
-                    if cb.info == b"math" {
-                        let math_str = String::from_utf8_lossy(&cb.literal);
-                        let lines = math_str.lines();
-                        let mut math_lines: Vec<String> = Vec::new();
+                    let language = String::from_utf8_lossy(&cb.info);
 
-                        // Lines separated by a fully empty line will be rendered vertically stacked
-                        let mut append_to_prev = false;
-                        for line in lines {
-                            if line.trim().is_empty() {
-                                append_to_prev = false;
-                            } else {
-                                if append_to_prev {
-                                    math_lines.last_mut().unwrap().push_str(line);
+                    match language.as_ref() {
+                        "math" | "latex math" => {
+                            let math_str = String::from_utf8_lossy(&cb.literal);
+                            let lines = math_str.lines();
+                            let mut math_lines: Vec<String> = Vec::new();
+    
+                            // Lines separated by a fully empty line will be rendered vertically stacked
+                            let mut append_to_prev = false;
+                            for line in lines {
+                                if line.trim().is_empty() {
+                                    append_to_prev = false;
                                 } else {
-                                    math_lines.push(line.to_string());
+                                    if append_to_prev {
+                                        math_lines.last_mut().unwrap().push_str(line);
+                                    } else {
+                                        math_lines.push(line.to_string());
+                                    }
+                                    append_to_prev = true;
                                 }
-                                append_to_prev = true;
+                            }
+    
+                            for math in math_lines {
+                                let mut math_block = match Math::new(&math) {
+                                    Ok(it) => it,
+                                    Err(e) => {
+                                        eprintln!(
+                                            "Error while parsing math block in line ({}): {}", 
+                                            ast_node.borrow().start_line,
+                                            e
+                                        );
+                                        eprintln!("    occured in '{}'", math);
+                                        continue;
+                                    }
+                                };
+                                math_block.set_alignment(Alignment::Center);
+    
+                                doc.push(PaddedElement::new(
+                                    math_block, 
+                                    Margins::trbl(0, 0, docstyle.paragraph_spacing, 0)
+                                ));
                             }
                         }
+                        _ => {
+                            let code_str = String::from_utf8_lossy(&cb.literal);
 
-                        for math in math_lines {
-                            let mut math_block = match Math::new(&math) {
-                                Ok(it) => it,
-                                Err(e) => {
-                                    eprintln!(
-                                        "Error while parsing math block in line ({}): {}", 
-                                        ast_node.borrow().start_line,
-                                        e
-                                    );
-                                    eprintln!("    occured in '{}'", math);
-                                    continue;
-                                }
-                            };
-                            math_block.set_alignment(Alignment::Center);
+                            let code_block = CodeBlock::new(
+                                &code_str, 
+                                &language, 
+                                Some("InspiredGitHub"),
+                                Style::new().with_font_family(monospace_font).with_font_size(10)
+                            );
 
                             doc.push(PaddedElement::new(
-                                math_block, 
-                                Margins::trbl(0, 0, docstyle.paragraph_spacing, 0)
+                                code_block.padded(Margins::all(1))
+                                    .framed(
+                                        LineStyle::new()
+                                            .with_thickness(0.1)
+                                            .with_color(Color::Rgb(30, 30, 30))
+                                    ), 
+                                Margins::trbl(0, 0, docstyle.paragraph_spacing * 2.0, 0)
                             ));
                         }
                     }

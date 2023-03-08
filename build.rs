@@ -30,6 +30,14 @@ fn main() {
             "FONT_MATH",
             "fonts/TeX-Gyre-Pagella/texgyrepagella-math.otf",
         ),
+        (
+            "FONT_MONOSPACE",
+            "fonts/Inconsolata/Inconsolata-Regular.ttf",
+        ),
+        (
+            "FONT_MONOSPACE_BOLD",
+            "fonts/Inconsolata/Inconsolata-SemiBold.ttf",
+        ),
         ("HYP_DE1996", "hyphenation-dicts/de-1996.standard.bincode"),
         ("HYP_EN_US", "hyphenation-dicts/en-us.standard.bincode"),
     ];

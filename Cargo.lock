@@ -639,7 +639,7 @@ dependencies = [
 [[package]]
 name = "genpdf"
 version = "0.2.0"
-source = "git+https://github.com/dnlmlr/genpdf-rs#dbaa52df19b5d85f57d34a22ad916f8c817a3b4a"
+source = "git+https://github.com/dnlmlr/genpdf-rs#591b0a969dda7c5f8db831676ce986dbf6dd535d"
 dependencies = [
  "derive_more",
  "font",
@@ -649,6 +649,7 @@ dependencies = [
  "printpdf",
  "rex",
  "rusttype",
+ "syntect",
 ]
 
 [[package]]
