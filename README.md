@@ -19,7 +19,7 @@ This is a non-exhaustive list of features that would be nice to have at some poi
 
 - ✔️ Normal plain text
 - ✔️ Justified text
-- ❌ Anything other than justified text
+- ❌ Anything other than justified text (not sure yet how to implement this in terms of syntax)
 - ✔️ Hyphenation (curretly supposted: en, de)
 - ✔️ Headings (h1 - h6): Not looking great due to the default styling, but supported
 - ✔️ Paragraphs (clear separation between paragraphs)
@@ -36,9 +36,10 @@ This is a non-exhaustive list of features that would be nice to have at some poi
 - ✔️ Unordered lists
 - ❌ Ordered (enumerated) lists
 - ❌ Task lists
-- ❌ Code blocks
-  - ❌ Simple monospace rendering
-  - ❌ Syntax highlighted rendering
+- 🛠️ Code blocks
+  - 🛠️ Simple monospace rendering (Works, but not yet stylable. Also no overflows or line numberings)
+  - 🛠️ Syntax highlighted rendering (Works, but not yet stylable. Also no overflows or line numberings)
+  - ❌ Inline Code blocks
 - ❌ Tables
 - 🛠️ Block quotes: Currently just makes the text italic and slightly more gray
 - ✔️ Page breaks (start a new page using `---`)
@@ -53,7 +54,7 @@ This is a non-exhaustive list of features that would be nice to have at some poi
   - ❌ References to images / tables / listings / ...
 - ❌ Including other files
 - ✔️ Automatically included default fonts
-- 🛠️ Font subsetting to reduce the output PDF size
+- ✔️ Font subsetting to reduce the output PDF size
   - ✔️ Remove fully unused fonts
   - ✔️ Subset the main text fonts according to glyphs occuring in the unparsed Markdown input
   - ✔️ Subset the math font
